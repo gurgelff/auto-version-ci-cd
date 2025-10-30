@@ -1,0 +1,49 @@
+name: Auto Versioning
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  increment-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }} # Token para permitir o push de volta
+
+      - name: Configure Git
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+      - name: Increment version
+        run: |
+          # Lê a versão atual, remove o 'v'
+          current_version=$(cat version.txt | sed 's/v//')
+          
+          # Quebra a versão em partes (major.minor.patch)
+          IFS='.' read -r -a version_parts <<< "$current_version"
+          
+          # Incrementa a parte do patch
+          version_parts[2]=$((version_parts[2] + 1))
+          
+          # Monta a nova versão
+          new_version="v${version_parts[0]}.${version_parts[1]}.${version_parts[2]}"
+          
+          # Escreve a nova versão no arquivo
+          echo "$new_version" > version.txt
+          echo "Nova versão: $new_version"
+
+      - name: Commit and push if changed
+        run: |
+          # Verifica se há mudanças no arquivo version.txt
+          git add version.txt
+          if ! git diff --staged --quiet; then
+            git commit -m "CI: Increment version to $(cat version.txt)"
+            git push
+          else
+            echo "Nenhuma mudança na versão."
+          fi
